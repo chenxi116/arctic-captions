@@ -1301,6 +1301,8 @@ def train(dim_word=100,  # word vector dimensionality
                 for jj in xrange(numpy.minimum(10, len(caps))):
                     sample, score = gen_sample(tparams, f_init, f_next, ctx_s[jj], model_options,
                                                trng=trng, k=5, maxlen=30, stochastic=False)
+                    # Check the image feature norm
+                    print 'Feature norm ', jj, ': ', numpy.linalg.norm(ctx_s[jj])
                     # Decode the sample from encoding back to words
                     print 'Truth ',jj,': ',
                     for vv in x_s[:,jj]:
