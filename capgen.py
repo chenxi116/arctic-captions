@@ -798,6 +798,9 @@ def build_sampler(tparams, options, use_noise, trng, sampling=True):
             ctxs.append(proj[4])
             proj_h = proj[0]
 
+    alphas = [proj[2]]
+    alpha_sample = [proj[3]]
+
     if options['use_dropout']:
         proj_h = dropout_layer(proj[0], use_noise, trng)
     else:
@@ -821,7 +824,7 @@ def build_sampler(tparams, options, use_noise, trng, sampling=True):
     next_sample = trng.multinomial(pvals=next_probs).argmax(1)
 
     # next word probability
-    f_next = theano.function([x, ctx]+init_state+init_memory, [next_probs, next_sample]+next_state+next_memory, name='f_next', profile=False)
+    f_next = theano.function([x, ctx]+init_state+init_memory, [next_probs, next_sample]+next_state+next_memory+alphas+alpha_sample, name='f_next', profile=False)
 
     return f_init, f_next
 
@@ -868,6 +871,8 @@ def gen_sample(tparams, f_init, f_next, ctx0, options,
     if k > 1:
         assert not stochastic, 'Beam search does not support stochastic sampling'
 
+    alphas = []
+    alpha_sample = []
     sample = []
     sample_score = []
     if stochastic:
@@ -909,6 +914,9 @@ def gen_sample(tparams, f_init, f_next, ctx0, options,
         for lidx in xrange(options['n_layers_lstm']):
             next_state.append(rval[2+lidx])
             next_memory.append(rval[2+options['n_layers_lstm']+lidx])
+
+        alphas.append(rval[-2][0])
+        alpha_sample.append(rval[-1][0])
 
         if stochastic:
             sample.append(next_w[0]) # if we are using stochastic sampling this easy
@@ -992,7 +1000,7 @@ def gen_sample(tparams, f_init, f_next, ctx0, options,
                 sample.append(hyp_samples[idx])
                 sample_score.append(hyp_scores[idx])
 
-    return sample, sample_score
+    return sample, sample_score, alphas, alpha_sample
 
 
 def pred_probs(f_log_probs, options, worddict, prepare_data, data, iterator, verbose=False):

@@ -5,6 +5,7 @@ Works on CPU with support for multi-process
 """
 import argparse
 import numpy
+from scipy.io import savemat
 import cPickle as pkl
 
 from capgen import build_sampler, gen_sample, \
@@ -36,14 +37,14 @@ def gen_model(queue, rqueue, pid, model, options, k, normalize, word_idict, samp
     f_init, f_next = build_sampler(tparams, options, use_noise, trng, sampling=sampling)
 
     def _gencap(cc0):
-        sample, score = gen_sample(tparams, f_init, f_next, cc0, options,
+        sample, score, alphas, alpha_sample = gen_sample(tparams, f_init, f_next, cc0, options,
                                    trng=trng, k=k, maxlen=200, stochastic=False)
         # adjust for length bias
         if normalize:
             lengths = numpy.array([len(s) for s in sample])
             score = score / lengths
         sidx = numpy.argmin(score)
-        return sample[sidx]
+        return sample[sidx], alphas
 
     while True:
         req = queue.get()
@@ -53,8 +54,8 @@ def gen_model(queue, rqueue, pid, model, options, k, normalize, word_idict, samp
 
         idx, context = req[0], req[1]
         print pid, '-', idx
-        seq = _gencap(context)
-        rqueue.put((idx, seq))
+        seq, alphas = _gencap(context)
+        rqueue.put((idx, seq, alphas))
 
     return 
 
@@ -112,12 +113,14 @@ def main(model, saveto, k=5, normalize=False, zero_pad=False, n_process=5, datas
     # retrieve caption from process
     def _retrieve_jobs(n_samples):
         caps = [None] * n_samples
+        alphas = [None] * n_samples
         for idx in xrange(n_samples):
             resp = rqueue.get()
             caps[resp[0]] = resp[1]
+            alphas[resp[0]] = resp[2]
             if numpy.mod(idx, 10) == 0:
                 print 'Sample ', (idx+1), '/', n_samples, ' Done'
-        return caps
+        return caps, alphas
 
     ds = datasets.strip().split(',')
 
@@ -126,16 +129,22 @@ def main(model, saveto, k=5, normalize=False, zero_pad=False, n_process=5, datas
         if dd == 'dev':
             print 'Development Set...',
             _send_jobs(valid[1])
-            caps = _seqs2words(_retrieve_jobs(len(valid[1].todense())))
+            capsi, alphas = _retrieve_jobs(len(valid[1].todense()))
+            caps = _seqs2words(capsi)
             with open(saveto+'.dev.txt', 'w') as f:
                 print >>f, '\n'.join(caps)
+            # pkl.dump(alphas, open(saveto+'.alphas.dev.pkl', 'wb'))
+            savemat(saveto+'.alphas.dev.mat', mdict = {'alphas': alphas})
             print 'Done'
         if dd == 'test':
             print 'Test Set...',
             _send_jobs(test[1])
-            caps = _seqs2words(_retrieve_jobs(len(test[1].todense())))
+            capsi, alphas = _retrieve_jobs(len(test[1].todense()))
+            caps = _seqs2words(capsi)
             with open(saveto+'.test.txt', 'w') as f:
                 print >>f, '\n'.join(caps)
+            # pkl.dump(alphas, open(saveto+'.alphas.test.pkl', 'wb'))
+            savemat(saveto+'.alphas.test.mat', mdict = {'alphas': alphas})
             print 'Done'
     # end processes
     for midx in xrange(n_process):
