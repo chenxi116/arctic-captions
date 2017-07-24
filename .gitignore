@@ -56,3 +56,9 @@ docs/_build/
 
 # PyBuilder
 target/
+
+VGG
+VGG/*
+data/coco/*align*.pkl
+data/f30k/*align*.pkl
+

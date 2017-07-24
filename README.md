@@ -1,44 +1,34 @@
-# arctic-captions
+# Attention Correctness in Neural Image Captioning
 
-Source code for [Show, Attend and Tell: Neural Image Caption Generation with Visual Attention](http://arxiv.org/abs/1502.03044)
-runnable on GPU and CPU.
+This branch `attn-corr` contains code for [Attention Correctness in Neural Image Captioning](https://arxiv.org/abs/1605.09553), AAAI 2017.
 
-Joint collaboration between the Université de Montréal & University of Toronto.
+If you use this branch, please cite
+```
+@inproceedings{liu2017attention,
+  title={Attention Correctness in Neural Image Captioning},
+  author={Liu, Chenxi and Mao, Junhua and Sha, Fei and Yuille, Alan},
+  booktitle={{AAAI}},
+  year={2017}
+}
+```
 
-## Dependencies
+See the `master` branch for original dependencies, reference, license etc.
 
-This code is written in python. To use it you will need:
+## Data Preparation
 
-* Python 2.7
-* A relatively recent version of [NumPy](http://www.numpy.org/)
-* [scikit learn](http://scikit-learn.org/stable/index.html)
-* [skimage](http://scikit-image.org/docs/dev/api/skimage.html)
-* [argparse](https://www.google.ca/search?q=argparse&oq=argparse&aqs=chrome..69i57.1260j0j1&sourceid=chrome&es_sm=122&ie=UTF-8#q=argparse+pip)
+- Modify and run `./prep/resize_centercrop.m` on COCO train2014, val2014, as well as Flickr 30k 
+- Download or use symlink, such that `VGG_ILSVRC_19_layers_deploy.prototxt` and `VGG_ILSVRC_19_layers.caffemodel` are under `./VGG/`
+- Extract `conv5_4` features from VGG 19
+```
+cd prep
+python extract_features.py -d coco -s train -i /your/path/to/train2014-center/
+python extract_features.py -d coco -s dev -i /your/path/to/val2014-center/
+python extract_features.py -d coco -s test -i /your/path/to/val2014-center/
+python extract_features.py -d f30k -s train -i /your/path/to/flickr30k-center/
+python extract_features.py -d f30k -s dev -i /your/path/to/flickr30k-center/
+python extract_features.py -d f30k -s test -i /your/path/to/flickr30k-center/
+```
 
-In addition, this code is built using the powerful
-[Theano](http://www.deeplearning.net/software/theano/) library. If you
-encounter problems specific to Theano, please use a commit from around
-February 2015 and notify the authors.
+## Training
 
-To use the evaluation script (metrics.py): see
-[coco-caption](https://github.com/tylin/coco-caption) for the requirements.
-
-## Reference
-
-If you use this code as part of any published research, please acknowledge the
-following paper (it encourages researchers who publish their code!):
-
-**"Show, Attend and Tell: Neural Image Caption Generation with Visual Attention."**  
-Kelvin Xu, Jimmy Ba, Ryan Kiros, Kyunghyun Cho, Aaron Courville, Ruslan
-Salakhutdinov, Richard Zemel, Yoshua Bengio. *To appear ICML (2015)*
-
-    @article{Xu2015show,
-        title={Show, Attend and Tell: Neural Image Caption Generation with Visual Attention},
-        author={Xu, Kelvin and Ba, Jimmy and Kiros, Ryan and Cho, Kyunghyun and Courville, Aaron and Salakhutdinov, Ruslan and Zemel, Richard and Bengio, Yoshua},
-        journal={arXiv preprint arXiv:1502.03044},
-        year={2015}
-    } 
-
-## License
-
-The code is released under a [revised (3-clause) BSD License](http://directory.fsf.org/wiki/License:BSD_3Clause).
+## Testing
