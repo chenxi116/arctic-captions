@@ -21,7 +21,7 @@ def extract_features(dataset, setname, num_caps, img_path, gpu):
         for line in f:
             img.append(line.strip())
 
-    VGG_path = '../VGG/'
+    VGG_path = '../external/VGG/'
     model_def = VGG_path + 'VGG_ILSVRC_19_layers_deploy.prototxt'
     model_weights = VGG_path + 'VGG_ILSVRC_19_layers.caffemodel'
     net = caffe.Net(model_def, model_weights, caffe.TEST)
@@ -66,7 +66,7 @@ if __name__ == "__main__":
     parser.add_argument('-d', type=str) # 'f30k' 'coco'
     parser.add_argument('-s', type=str) # 'train' 'dev' 'test'
     parser.add_argument('-n', type=int, default=5)
-    parser.add_argument('-i', type=str) # '/media/Work_HD/cxliu/datasets/flickr30k-center/'
+    parser.add_argument('-i', type=str) # '../external/flickr30k-center/'
     parser.add_argument('-g', type=int, default=0)
 
     args = parser.parse_args()

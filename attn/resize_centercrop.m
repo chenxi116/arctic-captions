@@ -1,5 +1,9 @@
-input_dir = '/media/Work_HD/cxliu/datasets/coco/images/train2014/';
-output_dir = '/media/Work_HD/cxliu/datasets/coco/images/train2014-center/';
+input_dir = '../external/flickr30k-images/';
+output_dir = '../external/flickr30k-center/';
+% input_dir = '../external/coco/images/train2014/';
+% output_dir = '../external/coco/images/train2014-center/';
+% input_dir = '../external/coco/images/val2014/';
+% output_dir = '../external/coco/images/val2014-center/';
 if ~exist(output_dir, 'dir')
     mkdir(output_dir)
 end

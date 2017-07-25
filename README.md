@@ -14,19 +14,55 @@ If you use this branch, please cite
 
 See the `master` branch for original dependencies, reference, license etc.
 
+## Dependencies
+
+- Run `mkdir external`
+- [Download](http://shannon.cs.illinois.edu/DenotationGraph/) or use symlink, such that the Flickr30k images are under `./external/flickr30k-images/`
+- [Download](http://mscoco.org/dataset/#download) or use symlink, such chat MS COCO images are under `./external/coco/images/train2014/` and `./external/coco/images/val2014/`, and MS COCO annotations are under `./external/coco/annotations/`
+- [Download](https://gist.github.com/ksimonyan/3785162f95cd2d5fee77) or use symlink, such that `VGG_ILSVRC_19_layers_deploy.prototxt` and `VGG_ILSVRC_19_layers.caffemodel` are under `./external/VGG/`
+- [Download](http://bplumme2.web.engr.illinois.edu/Flickr30kEntities/) or use symlink, such that the `Flickr30kEntities` folder is under `./external/`
+- [Download](https://stanfordnlp.github.io/CoreNLP/) or use symlink, such that the `stanford-corenlp-full-2015-12-09` folder is under `./external/`
+- [Download](https://drive.google.com/file/d/0B7XkCwpI5KDYNlNUTTlSS21pQmM/edit?usp=sharing) or use symlink, such that `GoogleNews-vectors-negative300.bin` is under `./external/`
+- Install [stanford_corenlp_pywrapper](https://github.com/brendano/stanford_corenlp_pywrapper)
+- Install [gensim](https://radimrehurek.com/gensim/install.html)
+- [MS COCO API](https://github.com/pdollar/coco)
+- [coco-caption](https://github.com/tylin/coco-caption)
+
 ## Data Preparation
 
-- Modify and run `./prep/resize_centercrop.m` on COCO train2014, val2014, as well as Flickr 30k 
-- Download or use symlink, such that `VGG_ILSVRC_19_layers_deploy.prototxt` and `VGG_ILSVRC_19_layers.caffemodel` are under `./VGG/`
+### Image deep features
+
+- Modify and run `./attn/resize_centercrop.m` on COCO train2014, val2014, as well as Flickr30k 
 - Extract `conv5_4` features from VGG 19
 ```
-cd prep
-python extract_features.py -d coco -s train -i /your/path/to/train2014-center/
-python extract_features.py -d coco -s dev -i /your/path/to/val2014-center/
-python extract_features.py -d coco -s test -i /your/path/to/val2014-center/
-python extract_features.py -d f30k -s train -i /your/path/to/flickr30k-center/
-python extract_features.py -d f30k -s dev -i /your/path/to/flickr30k-center/
-python extract_features.py -d f30k -s test -i /your/path/to/flickr30k-center/
+cd attn
+python extract_features.py -d f30k -s train -i ../external/flickr30k-center/
+python extract_features.py -d f30k -s dev -i ../external/flickr30k-center/
+python extract_features.py -d f30k -s test -i ../external/flickr30k-center/
+python extract_features.py -d coco -s train -i ../external/coco/images/train2014-center/
+python extract_features.py -d coco -s dev -i ../external/coco/images/val2014-center/
+python extract_features.py -d coco -s test -i ../external/coco/images/val2014-center/
+```
+
+### Strong supervision on Flickr30k
+
+- Run `./attn/f30k_generate_attn.m` with setname `train`, `dev`, `test`
+- Convert `mat` files to `pkl` files
+```
+cd attn
+python f30k_regenerate_attn.py -s train
+python f30k_regenerate_attn.py -s dev
+python f30k_regenerate_attn.py -s test
+```
+
+### Weak supervision on COCO
+
+- Run
+```
+cd attn
+python coco_generate_attn.py -s train
+python coco_generate_attn.py -s dev
+python coco_generate_attn.py -s test
 ```
 
 ## Training
