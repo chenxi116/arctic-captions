@@ -66,3 +66,4 @@ data/coco/*.dev.*
 data/coco/*.test.*
 model/*
 cap/*
+vis/*

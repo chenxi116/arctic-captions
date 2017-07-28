@@ -1,9 +1,14 @@
-input_dir = '../external/flickr30k-images/';
-output_dir = '../external/flickr30k-center/';
-% input_dir = '../external/coco/images/train2014/';
-% output_dir = '../external/coco/images/train2014-center/';
-% input_dir = '../external/coco/images/val2014/';
-% output_dir = '../external/coco/images/val2014-center/';
+function resize_centercrop(dataset)
+if dataset == 'f30k'
+    input_dir = '../external/flickr30k-images/';
+    output_dir = '../external/flickr30k-center/';
+elseif dataset == 'cocotrain'
+    input_dir = '../external/coco/images/train2014/';
+    output_dir = '../external/coco/images/train2014-center/';
+elseif dataset == 'cocoval'
+    input_dir = '../external/coco/images/val2014/';
+    output_dir = '../external/coco/images/val2014-center/';
+end
 if ~exist(output_dir, 'dir')
     mkdir(output_dir)
 end
@@ -34,4 +39,5 @@ for i = 1:length(imgs)
 %     imshow(im_crop);
     
     imwrite(im_crop, [output_dir, imgs(i).name], 'jpg');
+end
 end

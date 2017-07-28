@@ -30,12 +30,18 @@ See the `master` branch for original dependencies, reference, license etc.
 
 ## Data Preparation
 
+All operations are under the `attn` folder.
+
 ### Image deep features
 
-- Modify and run `./attn/resize_centercrop.m` on COCO train2014, val2014, as well as Flickr30k 
+- Resize and center crop images. Run in MATLAB
+```
+resize_centercrop('f30k')
+resize_centercrop('cocotrain')
+resize_centercrop('cocoval')
+```
 - Extract `conv5_4` features from VGG 19
 ```
-cd attn
 python extract_features.py -d f30k -s train -i ../external/flickr30k-center/
 python extract_features.py -d f30k -s dev -i ../external/flickr30k-center/
 python extract_features.py -d f30k -s test -i ../external/flickr30k-center/
@@ -46,7 +52,12 @@ python extract_features.py -d coco -s test -i ../external/coco/images/val2014-ce
 
 ### Strong supervision on Flickr30k
 
-- Run `./attn/f30k_generate_attn.m` with setname `train`, `dev`, `test`
+- Generate attention ground truth based on Flickr30k Entities annotation. Run in MATLAB
+```
+f30k_generate_attn('train', 1.0)
+f30k_generate_attn('dev', 1.0)
+f30k_generate_attn('test', 1.0)
+```
 - Convert `mat` files to `pkl` files
 ```
 cd attn
@@ -59,7 +70,6 @@ python f30k_regenerate_attn.py -s test
 
 - Run
 ```
-cd attn
 python coco_generate_attn.py -s train
 python coco_generate_attn.py -s dev
 python coco_generate_attn.py -s test
@@ -86,3 +96,19 @@ python metrics.py ./cap/coco/coco_06_k5.test.txt ref/coco/test/reference*
 ```
 
 ## Testing Attention Correctness
+
+- Extract noun phrases
+```
+python extract_phrases.py -m f30k_00_k5 -d test
+python extract_phrases.py -m f30k_03_k5 -d test
+```
+- Align with Flickr30k Entities annotation. Run in MATLAB
+```
+align_phrases('test', 'f30k_00_k5')
+align_phrases('test', 'f30k_03_k5')
+```
+- Compute attention correctness. Run in MATLAB
+```
+attn_corr('test', 'f30k_00_k5')
+attn_corr('test', 'f30k_03_k5')
+```
