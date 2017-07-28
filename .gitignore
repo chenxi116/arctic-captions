@@ -64,4 +64,5 @@ data/f30k/*.test.*
 data/coco/*.train.*
 data/coco/*.dev.*
 data/coco/*.test.*
-
+model/*
+cap/*

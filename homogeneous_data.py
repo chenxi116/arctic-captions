@@ -66,7 +66,7 @@ class HomogeneousData():
 
         caps = [self.caps[ii] for ii in curr_indices]
 
-        return caps
+        return (caps, curr_indices)
 
     def __iter__(self):
         return self

@@ -45,14 +45,15 @@ def main(params):
                            dataset="flickr30k",
                            use_dropout=params["use-dropout"],
                            use_dropout_lstm=params["use-dropout-lstm"],
-                           save_per_epoch=params["save-per-epoch"])
+                           save_per_epoch=params["save-per-epoch"],
+                           attn_c=params["attn-c"])
     print "Final cost: {:.2f}".format(validerr.mean())
 
 
 if __name__ == "__main__":
     # These defaults should more or less reproduce the soft
     # alignment model for the MS COCO dataset
-    defaults = {"model": "../model/flickr30k/f30k_transpose_flatten_model.npz",
+    defaults = {"model": "./model/f30k/f30k_model_00.npz",
                 "attn-type": "deterministic",
                 "dim-word": 512,
                 "ctx-dim": 512,
@@ -73,7 +74,8 @@ if __name__ == "__main__":
                 "use-dropout": True,
                 "use-dropout-lstm": False,
                 "save-per-epoch": False,
-                "reload": False}
+                "reload": False,
+                "attn-c": 0.0}
     # get updates from command line
     args = parser.parse_args()
     for change in args.changes:

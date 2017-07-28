@@ -35,6 +35,8 @@ import flickr8k
 import flickr30k
 import coco
 
+import pdb
+
 
 # datasets: 'name', 'load_data: returns iterator', 'prepare_data: some preprocessing'
 datasets = {'flickr8k': (flickr8k.load_data, flickr8k.prepare_data),
@@ -44,6 +46,28 @@ datasets = {'flickr8k': (flickr8k.load_data, flickr8k.prepare_data),
 
 def get_dataset(name):
     return datasets[name][0], datasets[name][1]
+
+
+def prepare_attn(indices, attnmapidx, attnmap):
+    seqs = []
+    for ii in indices:
+        seqs.append(attnmapidx[ii])
+
+    lengths = [len(s) for s in seqs]
+    n_samples = len(seqs)
+    maxlen = numpy.max(lengths) + 1
+
+    z = numpy.zeros((maxlen, n_samples, attnmap.shape[1])).astype('float32')
+    z_mask = numpy.zeros((maxlen, n_samples)).astype('float32')
+    for idx_s, s in enumerate(seqs): # for every sentence in the minibatch
+        for idx_w, w in enumerate(s): # for every word in the sentence
+            if w > 0: # this word has ground truth attention map
+                # pdb.set_trace()
+                z[idx_w, idx_s, :] = attnmap[w-1].todense()
+                z_mask[idx_w, idx_s] = 1.
+
+    return z, z_mask
+
 
 '''
 Theano uses shared variables for parameters, so to
@@ -603,6 +627,9 @@ def build_model(tparams, options, sampling=True):
     mask = tensor.matrix('mask', dtype='float32')
     # context: #samples x #annotations x dim
     ctx = tensor.tensor3('ctx', dtype='float32')
+    # ground truth attention map: #words x #samples x dim
+    z = tensor.tensor3('z', dtype='float32') 
+    z_mask = tensor.matrix('z_mask', dtype='float32')
 
     n_timesteps = x.shape[0]
     n_samples = x.shape[1]
@@ -711,7 +738,15 @@ def build_model(tparams, options, sampling=True):
         opt_outs['masked_cost'] = masked_cost # need this for reinforce later
         opt_outs['attn_updates'] = attn_updates # this is to update the rng
 
-    return trng, use_noise, [x, mask, ctx], alphas, alpha_sample, cost, opt_outs
+    z_flat = z.flatten()
+    alphas_flat = alphas.flatten()
+    # cost_attn = (z_flat - alphas_flat)**2 # L2 loss
+    cost_attn = - z_flat * tensor.log(alphas_flat+1e-8) # cross entropy loss
+    cost_attn = cost_attn.reshape([z.shape[0], z.shape[1], z.shape[2]])
+    masked_cost_attn = cost_attn.sum(2) * z_mask
+    cost_attn = (masked_cost_attn).sum(0)
+
+    return trng, use_noise, [x, mask, ctx, z, z_mask], alphas, alpha_sample, cost, cost_attn, opt_outs
 
 # build a sampler
 def build_sampler(tparams, options, use_noise, trng, sampling=True):
@@ -830,7 +865,7 @@ def build_sampler(tparams, options, use_noise, trng, sampling=True):
 
 # generate sample
 def gen_sample(tparams, f_init, f_next, ctx0, options,
-               trng=None, k=1, maxlen=30, stochastic=False):
+               trng=None, k=1, maxlen=30, stochastic=False, gt_cap=0):
     """Generate captions with beam search.
     
     This function uses the beam search algorithm to conditionally
@@ -905,8 +940,17 @@ def gen_sample(tparams, f_init, f_next, ctx0, options,
     for ii in xrange(maxlen):
         # our "next" state/memory in our previous step is now our "initial" state and memory
         rval = f_next(*([next_w, ctx0]+next_state+next_memory))
-        next_p = rval[0]
-        next_w = rval[1]
+        if gt_cap == 0:
+            next_p = rval[0]
+            next_w = rval[1]
+        else:
+            next_p = numpy.zeros(numpy.shape(rval[0])).astype('float32')
+            if ii < len(gt_cap):
+                w = gt_cap[ii]
+            else:
+                w = 0
+            next_w[0] = w
+            next_p[0, next_w[0]] = 1.
 
         # extract all the states and memories
         next_state = []
@@ -1107,17 +1151,18 @@ def train(dim_word=100,  # word vector dimensionality
           use_dropout=False,  # setting this true turns on dropout at various points
           use_dropout_lstm=False,  # dropout on lstm gates
           reload_=False,
-          save_per_epoch=False): # this saves down the model every epoch
+          save_per_epoch=False,  # this saves down the model every epoch
+          attn_c=0.): 
 
     # hyperparam dict
     model_options = locals().copy()
     model_options = validate_options(model_options)
 
     # reload options
-    if reload_ and os.path.exists(saveto):
-        print "Reloading options"
-        with open('%s.pkl'%saveto, 'rb') as f:
-            model_options = pkl.load(f)
+    # if reload_ and os.path.exists(saveto):
+        # print "Reloading options"
+        # with open('%s.pkl'%saveto, 'rb') as f:
+            # model_options = pkl.load(f)
 
     print "Using the following parameters:"
     print  model_options
@@ -1152,7 +1197,7 @@ def train(dim_word=100,  # word vector dimensionality
     #   5) opts_out - optional outputs (e.g selector)
     trng, use_noise, \
           inps, alphas, alphas_sample,\
-          cost, \
+          cost, cost_attn, \
           opt_outs = \
           build_model(tparams, model_options)
 
@@ -1164,10 +1209,14 @@ def train(dim_word=100,  # word vector dimensionality
     f_init, f_next = build_sampler(tparams, model_options, use_noise, trng)
 
     # we want the cost without any the regularizers
-    f_log_probs = theano.function(inps, -cost, profile=False,
+    f_log_probs = theano.function(inps[0:3], -cost, profile=False,
                                         updates=opt_outs['attn_updates']
                                         if model_options['attn_type']=='stochastic'
                                         else None)
+
+    f_cost_attn = theano.function(inps, cost_attn, profile=False)
+    if attn_c > 0.:
+        cost += attn_c*cost_attn
 
     cost = cost.mean()
     # add L2 regularization costs
@@ -1233,8 +1282,8 @@ def train(dim_word=100,  # word vector dimensionality
     # history_errs is a bare-bones training log that holds the validation and test error
     history_errs = []
     # reload history
-    if reload_ and os.path.exists(saveto):
-        history_errs = numpy.load(saveto)['history_errs'].tolist()
+    # if reload_ and os.path.exists(saveto):
+        # history_errs = numpy.load(saveto)['history_errs'].tolist()
     best_p = None
     bad_counter = 0
 
@@ -1252,7 +1301,10 @@ def train(dim_word=100,  # word vector dimensionality
 
         print 'Epoch ', eidx
 
-        for caps in train_iter:
+        for items in train_iter:
+            caps = items[0]
+            indices = items[1]
+
             n_samples += len(caps)
             uidx += 1
             # turn on dropout
@@ -1266,25 +1318,42 @@ def train(dim_word=100,  # word vector dimensionality
                                         worddict,
                                         maxlen=maxlen,
                                         n_words=n_words)
-            pd_duration = time.time() - pd_start
-
             if x is None:
                 print 'Minibatch with zero sample under length ', maxlen
                 continue
 
+            if train[2] == 0 and train[3] == 0:
+                z = numpy.zeros((x.shape[0], x.shape[1], 14*14)).astype('float32')
+                z_mask = numpy.zeros((x.shape[0], x.shape[1])).astype('float32')
+            else:
+                z, z_mask = prepare_attn(indices, train[2], train[3])
+                if numpy.shape(x)[0] != z.shape[0]: # these two should be the same
+                    pdb.set_trace()
+            pd_duration = time.time() - pd_start
+
             # get the cost for the minibatch, and update the weights
             ud_start = time.time()
-            cost = f_grad_shared(x, mask, ctx)
+
+            cost = f_grad_shared(x, mask, ctx, z, z_mask)
+            ca = f_cost_attn(x, mask, ctx, z, z_mask)
+            
             f_update(lrate)
             ud_duration = time.time() - ud_start # some monitoring for each mini-batch
+
+            # pdb.set_trace()
 
             # Numerical stability check
             if numpy.isnan(cost) or numpy.isinf(cost):
                 print 'NaN detected'
                 return 1., 1., 1.
 
+            if cost < 0 or ca.mean() < 0:
+                print 'Negative detected'
+                pdb.set_trace()
+
             if numpy.mod(uidx, dispFreq) == 0:
-                print 'Epoch ', eidx, 'Update ', uidx, 'Cost ', cost, 'PD ', pd_duration, 'UD ', ud_duration
+                print 'Epoch ', eidx, 'Update ', uidx, 'Cost ', cost, 'Cost Attn ', ca.mean()
+                # , 'PD ', pd_duration, 'UD ', ud_duration
 
             # Checkpoint
             if numpy.mod(uidx, saveFreq) == 0:
@@ -1307,7 +1376,7 @@ def train(dim_word=100,  # word vector dimensionality
                 ctx_s = ctx
                 # generate and decode the a subset of the current training batch
                 for jj in xrange(numpy.minimum(10, len(caps))):
-                    sample, score = gen_sample(tparams, f_init, f_next, ctx_s[jj], model_options,
+                    sample, score, alphas, alpha_sample = gen_sample(tparams, f_init, f_next, ctx_s[jj], model_options,
                                                trng=trng, k=5, maxlen=30, stochastic=False)
                     # Check the image feature norm
                     print 'Feature norm ', jj, ': ', numpy.linalg.norm(ctx_s[jj])

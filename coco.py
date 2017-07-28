@@ -1,4 +1,5 @@
 import cPickle as pkl
+from scipy.sparse import vstack
 import gzip
 import os
 import sys
@@ -13,7 +14,7 @@ def prepare_data(caps, features, worddict, maxlen=None, n_words=10000, zero_pad=
     seqs = []
     feat_list = []
     for cc in caps:
-        seqs.append([worddict[w] if worddict[w] < n_words else 1 for w in cc[0].split()])
+        seqs.append([worddict[w] if w in worddict and worddict[w] < n_words else 1 for w in cc[0].split()])
         feat_list.append(features[cc[1]])
 
     lengths = [len(s) for s in seqs]
@@ -54,7 +55,7 @@ def prepare_data(caps, features, worddict, maxlen=None, n_words=10000, zero_pad=
 
     return x, x_mask, y
 
-def load_data(load_train=True, load_dev=True, load_test=True, path='./'):
+def load_data(load_train=True, load_dev=True, load_test=True, path='./data/coco/'):
     ''' Loads the dataset
 
     :type dataset: string
@@ -75,19 +76,37 @@ def load_data(load_train=True, load_dev=True, load_test=True, path='./'):
         with open(path+'coco_align.train.pkl', 'rb') as f:
             train_cap = pkl.load(f)
             train_feat = pkl.load(f)
-        train = (train_cap, train_feat)
+
+        with open(path+'coco_attn_gt.train.pkl', 'rb') as f_sup:
+            train_mapidx = pkl.load(f_sup)
+            train_map = pkl.load(f_sup)
+
+        train = (train_cap, train_feat, train_mapidx, train_map)
+        # train = (train_cap, train_feat, 0, 0)
 
     if load_dev:
         with open(path+'coco_align.dev.pkl', 'rb') as f:
             dev_cap = pkl.load(f)
             dev_feat = pkl.load(f)
-        valid = (dev_cap, dev_feat)
+
+        with open(path+'coco_attn_gt.dev.pkl', 'rb') as f_sup:
+            dev_mapidx = pkl.load(f_sup)
+            dev_map = pkl.load(f_sup)
+
+        valid = (dev_cap, dev_feat, dev_mapidx, dev_map)
+        # valid = (dev_cap, dev_feat, 0, 0)
 
     if load_test:
         with open(path+'coco_align.test.pkl', 'rb') as f:
             test_cap = pkl.load(f)
             test_feat = pkl.load(f)
-        test = (test_cap, test_feat)
+
+        with open(path+'coco_attn_gt.test.pkl', 'rb') as f_sup:
+            test_mapidx = pkl.load(f_sup)
+            test_map = pkl.load(f_sup)
+
+        test = (test_cap, test_feat, test_mapidx, test_map)
+        # test = (test_cap, test_feat, 0, 0)
 
     with open(path+'dictionary.pkl', 'rb') as f:
         worddict = pkl.load(f)

@@ -5,13 +5,14 @@ import sys
 import time
 
 import numpy
+import pdb
 
 def prepare_data(caps, features, worddict, maxlen=None, n_words=10000, zero_pad=False):
     # x: a list of sentences
     seqs = []
     feat_list = []
     for cc in caps:
-        seqs.append([worddict[w] if worddict[w] < n_words else 1 for w in cc[0].split()])
+        seqs.append([worddict[w] if w in worddict and worddict[w] < n_words else 1 for w in cc[0].split()])
         feat_list.append(features[cc[1]])
 
     lengths = [len(s) for s in seqs]
@@ -52,7 +53,7 @@ def prepare_data(caps, features, worddict, maxlen=None, n_words=10000, zero_pad=
 
     return x, x_mask, y
 
-def load_data(load_train=True, load_dev=True, load_test=True, path='../data/flickr30k/'):
+def load_data(load_train=True, load_dev=True, load_test=True, path='./data/f30k/'):
     ''' Loads the dataset
 
     :type dataset: string
@@ -65,24 +66,33 @@ def load_data(load_train=True, load_dev=True, load_test=True, path='../data/flic
     print '... loading data'
 
     if load_train:
-        with open(path+'flicker_30k_align.train.pkl', 'rb') as f:
+        with open(path+'f30k_align.train.pkl', 'rb') as f:
             train_cap = pkl.load(f)
             train_feat = pkl.load(f)
-        train = (train_cap, train_feat)
+        with open(path+'f30k_attn_gt_10.train.pkl', 'rb') as f_sup:
+            train_mapidx = pkl.load(f_sup)
+            train_map = pkl.load(f_sup)
+        train = (train_cap, train_feat, train_mapidx, train_map)
     else:
         train = None
     if load_test:
-        with open(path+'flicker_30k_align.test.pkl', 'rb') as f:
+        with open(path+'f30k_align.test.pkl', 'rb') as f:
             test_cap = pkl.load(f)
             test_feat = pkl.load(f)
-        test = (test_cap, test_feat)
+        with open(path+'f30k_attn_gt_10.test.pkl', 'rb') as f_sup:
+            test_mapidx = pkl.load(f_sup)
+            test_map = pkl.load(f_sup)
+        test = (test_cap, test_feat, test_mapidx, test_map)
     else:
         test = None
     if load_dev:
-        with open(path+'flicker_30k_align.dev.pkl', 'rb') as f:
+        with open(path+'f30k_align.dev.pkl', 'rb') as f:
             dev_cap = pkl.load(f)
             dev_feat = pkl.load(f)
-        valid = (dev_cap, dev_feat)
+        with open(path+'f30k_attn_gt_10.dev.pkl', 'rb') as f_sup:
+            dev_mapidx = pkl.load(f_sup)
+            dev_map = pkl.load(f_sup)
+        valid = (dev_cap, dev_feat, dev_mapidx, dev_map)
     else:
         valid = None
 

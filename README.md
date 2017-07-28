@@ -67,4 +67,22 @@ python coco_generate_attn.py -s test
 
 ## Training
 
-## Testing
+Edit Line 56 and 78 of `evaluate_flickr30k.py` or `evaluate_coco.py` if necessary. `attn-c` is `lambda` in the paper, which controls the relative strength of attention loss. Setting it to zero then the code falls back to Show, Attend and Tell. To initiate training, run
+```
+THEANO_FLAGS='device=gpu0,floatX=float32,on_unused_input='warn'' python evaluate_flickr30k.py 
+THEANO_FLAGS='device=gpu1,floatX=float32,on_unused_input='warn'' python evaluate_coco.py
+``` 
+
+## Testing Captioning Performance
+
+```
+mkdir cap
+mkdir cap/f30k
+mkdir cap/coco
+python generate_caps.py ./model/f30k/f30k_model_03.npz ./cap/f30k/f30k_03_k5 -d test -k 5
+python metrics.py ./cap/f30k/f30k_03_k5.test.txt ref/30k/test/reference*
+python generate_caps.py ./model/coco/coco_model_06.npz ./cap/coco/coco_06_k5 -d test -k 5
+python metrics.py ./cap/coco/coco_06_k5.test.txt ref/coco/test/reference*
+```
+
+## Testing Attention Correctness

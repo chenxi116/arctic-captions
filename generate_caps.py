@@ -7,12 +7,13 @@ import argparse
 import numpy
 from scipy.io import savemat
 import cPickle as pkl
+import pdb
 
 from capgen import build_sampler, gen_sample, \
                    load_params, \
                    init_params, \
                    init_tparams, \
-                   get_dataset \
+                   get_dataset
 
 from multiprocessing import Process, Queue
 
@@ -36,9 +37,9 @@ def gen_model(queue, rqueue, pid, model, options, k, normalize, word_idict, samp
     # see capgen.py for more detailed explanations
     f_init, f_next = build_sampler(tparams, options, use_noise, trng, sampling=sampling)
 
-    def _gencap(cc0):
+    def _gencap(cc0, cc1=0):
         sample, score, alphas, alpha_sample = gen_sample(tparams, f_init, f_next, cc0, options,
-                                   trng=trng, k=k, maxlen=200, stochastic=False)
+                                   trng=trng, k=k, maxlen=200, stochastic=False, gt_cap = cc1)
         # adjust for length bias
         if normalize:
             lengths = numpy.array([len(s) for s in sample])
@@ -52,14 +53,14 @@ def gen_model(queue, rqueue, pid, model, options, k, normalize, word_idict, samp
         if req is None:
             break
 
-        idx, context = req[0], req[1]
+        idx, cap, context = req[0], req[1], req[2]
         print pid, '-', idx
-        seq, alphas = _gencap(context)
+        seq, alphas = _gencap(context, 0) # change cap to 0 for old code
         rqueue.put((idx, seq, alphas))
 
     return 
 
-def main(model, saveto, k=5, normalize=False, zero_pad=False, n_process=5, datasets='dev,test', sampling=False, pkl_name=None):
+def main(model, saveto, k=5, normalize=False, zero_pad=False, n_process=5, datasets='dev,test', sampling=False, pkl_name=None, ic=0):
     # load model model_options
     if pkl_name is None:
         pkl_name = model
@@ -100,15 +101,18 @@ def main(model, saveto, k=5, normalize=False, zero_pad=False, n_process=5, datas
         return capsw
 
     # unsparsify, reshape, and queue
-    def _send_jobs(contexts):
+    def _send_jobs(caps, contexts, worddict, ic):
         for idx, ctx in enumerate(contexts):
+            cc = caps[idx*5 + ic]
+            seqs = [worddict[w] if w in worddict and worddict[w] < 10000 else 1 for w in cc[0].split()]
+
             cc = ctx.todense().reshape([14*14,512])
             if zero_pad:
                 cc0 = numpy.zeros((cc.shape[0]+1, cc.shape[1])).astype('float32')
                 cc0[:-1,:] = cc
             else:
                 cc0 = cc
-            queue.put((idx, cc0))
+            queue.put((idx, seqs, cc0))
 
     # retrieve caption from process
     def _retrieve_jobs(n_samples):
@@ -128,7 +132,7 @@ def main(model, saveto, k=5, normalize=False, zero_pad=False, n_process=5, datas
     for dd in ds:
         if dd == 'dev':
             print 'Development Set...',
-            _send_jobs(valid[1])
+            _send_jobs(valid[0], valid[1], worddict, ic)
             capsi, alphas = _retrieve_jobs(len(valid[1].todense()))
             caps = _seqs2words(capsi)
             with open(saveto+'.dev.txt', 'w') as f:
@@ -138,7 +142,7 @@ def main(model, saveto, k=5, normalize=False, zero_pad=False, n_process=5, datas
             print 'Done'
         if dd == 'test':
             print 'Test Set...',
-            _send_jobs(test[1])
+            _send_jobs(test[0], test[1], worddict, ic)
             capsi, alphas = _retrieve_jobs(len(test[1].todense()))
             caps = _seqs2words(capsi)
             with open(saveto+'.test.txt', 'w') as f:
@@ -155,13 +159,14 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('-k', type=int, default=1)
     parser.add_argument('-sampling', action="store_true", default=False) # this only matters for hard attention
-    parser.add_argument('-p', type=int, default=5, help="number of processes to use")
+    parser.add_argument('-p', type=int, default=4, help="number of processes to use")
     parser.add_argument('-n', action="store_true", default=False)
     parser.add_argument('-z', action="store_true", default=False)
     parser.add_argument('-d', type=str, default='dev,test')
     parser.add_argument('-pkl_name', type=str, default=None, help="name of pickle file (without the .pkl)")
     parser.add_argument('model', type=str)
     parser.add_argument('saveto', type=str)
+    parser.add_argument('-r', type=int, default=0, help="index of reference") # 0, 1, 2, 3, 4
 
     args = parser.parse_args()
-    main(args.model, args.saveto, k=args.k, zero_pad=args.z, pkl_name=args.pkl_name,  n_process=args.p, normalize=args.n, datasets=args.d, sampling=args.sampling)
+    main(args.model, args.saveto, k=args.k, zero_pad=args.z, pkl_name=args.pkl_name,  n_process=args.p, normalize=args.n, datasets=args.d, sampling=args.sampling, ic=args.r)
