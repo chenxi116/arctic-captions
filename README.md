@@ -30,7 +30,7 @@ See the `master` branch for original dependencies, reference, license etc.
 
 ## Data Preparation
 
-All operations are under the `attn` folder.
+The following operations are under the `attn` folder.
 
 ### Image deep features
 
@@ -60,7 +60,6 @@ f30k_generate_attn('test', 1.0)
 ```
 - Convert `mat` files to `pkl` files
 ```
-cd attn
 python f30k_regenerate_attn.py -s train
 python f30k_regenerate_attn.py -s dev
 python f30k_regenerate_attn.py -s test
@@ -96,6 +95,8 @@ python metrics.py ./cap/coco/coco_06_k5.test.txt ref/coco/test/reference*
 ```
 
 ## Testing Attention Correctness
+
+The following operations are under the `attn` folder.
 
 - Extract noun phrases
 ```
